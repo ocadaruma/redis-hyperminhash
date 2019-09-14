@@ -1,3 +1,4 @@
+//! redis layer of HyperMinHash
 use std::os::raw::{c_int, c_longlong};
 
 const MODULE_NAME: &str = "redis-minhash";
