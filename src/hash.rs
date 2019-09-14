@@ -117,11 +117,11 @@ pub fn murmur3_x64_128(element: &[u8], seed: u64) -> u128 {
 fn fmix64(k: u64) -> u64 {
     let mut result = k;
 
-    result ^= (result >> 33);
+    result ^= result >> 33;
     result = result.wrapping_mul(0xff5_1afd7ed5_58ccdu64);
-    result ^= (result >> 33);
+    result ^= result >> 33;
     result = result.wrapping_mul(0xc4c_eb9fe1a8_5ec53u64);
-    result ^= (result >> 33);
+    result ^= result >> 33;
 
     result
 }
