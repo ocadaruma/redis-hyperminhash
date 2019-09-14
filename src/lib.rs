@@ -2,3 +2,4 @@
 
 pub mod minhash;
 pub mod hash;
+mod redis;
