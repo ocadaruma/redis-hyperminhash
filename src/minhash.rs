@@ -25,12 +25,80 @@ impl MinHash {
         }
     }
 
+    pub fn merge(sketches: &[Self]) -> MinHash {
+        let mut target = Self::new();
+        for sketch in sketches {
+            for i in 0..target.registers.len() {
+                if sketch.registers[i] > target.registers[i] {
+                    target.registers[i] = sketch.registers[i];
+                }
+            }
+        }
+        target
+    }
+
+    pub fn intersection(sketches: &[Self]) -> f64 {
+        if sketches.is_empty() {
+            panic!("sketches must not be empty");
+        }
+
+        Self::similarity(sketches) * Self::merge(sketches).cardinality()
+    }
+
+    pub fn similarity(sketches: &[Self]) -> f64 {
+        if sketches.is_empty() {
+            panic!("sketches must not be empty");
+        }
+
+        if sketches.len() == 1 {
+            return 1.0;
+        }
+
+        let mut c = 0u64;
+        let mut n = 0u64;
+        let head = &sketches[0];
+
+        for i in 0..head.registers.len() {
+            if head.registers[i] != 0 {
+                let mut contains = true;
+                for sketch in sketches {
+                    contains = contains && (head.registers[i] == sketch.registers[i]);
+                }
+                if contains {
+                    c += 1;
+                }
+            }
+
+            for sketch in sketches {
+                if sketch.registers[i] != 0 {
+                    n += 1;
+                    break;
+                }
+            }
+        }
+
+        if c == 0 {
+            return 0.0;
+        }
+
+        let mut cs = vec![0.0; sketches.len()];
+        for (i, sketch) in sketches.iter().enumerate() {
+            cs[i] = sketch.cardinality();
+        }
+
+        let n_e = Self::expected_collision(&cs);
+        if (c as f64) < n_e {
+            return 0.0;
+        }
+        (c as f64 - n_e) / n as f64
+    }
+
     pub fn add(&mut self, element: &[u8]) {
         let hash = murmur3_x64_128(element, HASH_SEED);
 
         let register = (hash >> (HASH_BITS - P) as u128) as usize;
 
-        let pat_len = MinHash::pat_len(&hash);
+        let pat_len = Self::pat_len(&hash);
         let rbits = hash as usize & ((1 << R) - 1);
 
         let packed = rbits as u32 | (pat_len << R as u32);
@@ -39,7 +107,7 @@ impl MinHash {
         }
     }
 
-    pub fn cardinality(&self) -> u64 {
+    pub fn cardinality(&self) -> f64 {
         let m = NUM_REGISTERS as f64;
 
         let mut reg_histo = [0u32; HLL_BITS as usize];
@@ -47,16 +115,46 @@ impl MinHash {
             reg_histo[self.registers[i] as usize >> R] += 1;
         }
 
-        let mut z = m * MinHash::tau((m - reg_histo[HLL_Q + 1] as f64) / m);
+        let mut z = m * Self::tau((m - reg_histo[HLL_Q + 1] as f64) / m);
         for i in (1..=HLL_Q).rev() {
             z += reg_histo[i] as f64;
             z *= 0.5;
         }
 
-        z += m * MinHash::sigma(reg_histo[0] as f64 / m);
+        z += m * Self::sigma(reg_histo[0] as f64 / m);
 
-        let e = (HLL_ALPHA_INF * m * m / z).round();
-        e as u64
+        (HLL_ALPHA_INF * m * m / z).round()
+    }
+
+    fn expected_collision(cs: &[f64]) -> f64 {
+        let _2r = 1 << R;
+
+        let mut x = 0.0;
+        let mut b1: f64;
+        let mut b2: f64;
+
+        for i in 1..=HLL_Q {
+            for j in 1..=_2r {
+                if i != HLL_Q {
+                    let den = 2f64.powf((P + R + i) as f64);
+                    b1 = (_2r + j) as f64 / den;
+                    b2 = (_2r + j + 1) as f64 / den;
+                } else {
+                    let den = 2f64.powf((P + R + i - 1) as f64);
+                    b1 = j as f64 / den;
+                    b2 = (j + 1) as f64 / den;
+                }
+
+                let mut product = 1.0;
+                for c in cs {
+                    product *= (1.0 - b2).powf(*c) - (1.0 - b1).powf(*c);
+                }
+
+                x += product;
+            }
+        }
+
+        x * NUM_REGISTERS as f64
     }
 
     fn pat_len(hash: &u128) -> u32 {
@@ -119,31 +217,54 @@ impl MinHash {
 #[cfg(test)]
 mod tests {
     use super::MinHash;
+    use crate::minhash::NUM_REGISTERS;
 
     #[test]
     fn test_new() {
         let minhash = MinHash::new();
+
+        assert_eq!(minhash.registers.len(), NUM_REGISTERS);
     }
 
     #[test]
     fn test_pat_len() {
         assert_eq!(MinHash::pat_len(&0u128), 65);
 
-        assert_eq!(MinHash::pat_len(&0x1_00000000_00000000u128), 51);
+        assert_eq!(MinHash::pat_len(&0x1_00000000_00000000u128), 50);
     }
 
     #[test]
-    fn test_accuracy() {
+    fn test_cardinality() {
         let mut minhash = MinHash::new();
 
         for i in 0..10 {
             minhash.add(format!("id{}", i).as_bytes());
         }
-        assert_eq!(minhash.cardinality(), 10);
+        assert_eq!(minhash.cardinality() as u64, 10);
 
         for i in 0..1_000_000 {
             minhash.add(format!("id{}", i).as_bytes());
         }
-        assert_eq!(minhash.cardinality(), 997689);
+        assert_eq!(minhash.cardinality() as u64, 997689);
+    }
+
+    #[test]
+    fn test_intersection() {
+        let mut minhash_1 = MinHash::new();
+        for i in 0..10000 {
+            minhash_1.add(format!("a_{}", i).as_bytes());
+        }
+
+        let mut minhash_2 = MinHash::new();
+        for i in 0..10000 {
+            minhash_2.add(format!("b_{}", i).as_bytes());
+        }
+
+        for i in 0..100 {
+            minhash_1.add(format!("ab_{}", i).as_bytes());
+            minhash_2.add(format!("ab_{}", i).as_bytes());
+        }
+
+        assert_eq!(MinHash::intersection(&[minhash_1, minhash_2]) as u64, 106);
     }
 }
