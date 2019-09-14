@@ -1,6 +1,6 @@
 //! HyperMinHash data structure.
 
-use crate::hash::murmur3_x64_128;
+use super::hash::murmur3_x64_128;
 
 const HASH_BITS: usize = 128;
 const HASH_SEED: u64 = 0x1fb03e03;
@@ -217,7 +217,7 @@ impl MinHash {
 #[cfg(test)]
 mod tests {
     use super::MinHash;
-    use crate::minhash::NUM_REGISTERS;
+    use super::NUM_REGISTERS;
 
     #[test]
     fn test_new() {
