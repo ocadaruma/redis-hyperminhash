@@ -5,6 +5,7 @@ use crate::minhash::*;
 
 /// constant for 0.5/ln(2)
 const HLL_ALPHA_INF: f64 = 0.721347520444481703680;
+const HASH_SEED: u64 = 0x1fb03e03;
 
 pub struct MinHash<T : RegVector> {
     registers: T,
@@ -12,9 +13,13 @@ pub struct MinHash<T : RegVector> {
 
 impl <T : RegVector> MinHash<T> {
     pub fn new() -> Self {
-        MinHash {
+        Self {
             registers: T::new()
         }
+    }
+
+    pub fn from(registers: T) -> Self {
+        Self { registers, }
     }
 
     pub fn merge(sketches: &[Self]) -> Self {
@@ -51,11 +56,12 @@ impl <T : RegVector> MinHash<T> {
         let mut n = 0u64;
         let head = &sketches[0];
 
-        for (i, reg) in head.registers.iterator().enumerate() {
-            if *reg != 0 {
+        for i in 0..head.registers.len() {
+            let reg = head.registers.get(i);
+            if reg != 0 {
                 let mut contains = true;
                 for sketch in sketches {
-                    contains = contains && (*reg == sketch.registers.get(i));
+                    contains = contains && (reg == sketch.registers.get(i));
                 }
                 if contains {
                     c += 1;
