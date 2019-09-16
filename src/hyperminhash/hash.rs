@@ -40,7 +40,6 @@ pub fn murmur3_x64_128(element: &[u8], seed: u64) -> u128 {
             .rotate_left(31)
             .wrapping_mul(c2);
 
-
         h1 = h1
             .bitxor(k1)
             .rotate_left(27)

@@ -1,8 +1,7 @@
-use crate::minhash::{RegVector, NUM_REGISTERS};
-use crate::redis::dma::CByteArray;
-use std::mem::size_of;
+use crate::hyperminhash::RegVector;
+use super::dma::CByteArray;
 use libc::size_t;
-use crate::redis::{RedisModule_Calloc, RedisModule_Free};
+use std::mem::size_of;
 
 /// RegVector impl which stores registers as integer array.
 /// Each integer is stored in BigEndian.
@@ -11,15 +10,9 @@ pub struct SimpleDMARegVector {
 }
 
 impl SimpleDMARegVector {
-    pub fn new(ptr: *mut u8, len: size_t) -> Self {
+    pub fn wrap(ptr: *mut u8, len: size_t) -> Self {
         Self {
             data: CByteArray::wrap(ptr, len)
-        }
-    }
-
-    pub fn free(&self) {
-        unsafe {
-            RedisModule_Free(self.data.ptr())
         }
     }
 }
@@ -48,15 +41,5 @@ impl RegVector for SimpleDMARegVector {
 
     fn len(&self) -> usize {
         self.data.len()
-    }
-
-    fn new() -> Self {
-        let ptr = unsafe {
-            RedisModule_Calloc(size_of::<u32>(), NUM_REGISTERS)
-        };
-
-        Self {
-            data: CByteArray::wrap(ptr, size_of::<u32>() * NUM_REGISTERS)
-        }
     }
 }

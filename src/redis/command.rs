@@ -1,9 +1,8 @@
-use crate::redis::*;
-use libc::{c_int, size_t};
-use crate::minhash::sketch::MinHash;
-use crate::redis::store::SimpleDMARegVector;
-use std::os::raw::c_longlong;
-use crate::minhash::NUM_REGISTERS;
+use super::*;
+use crate::hyperminhash::sketch::HyperMinHash;
+use crate::hyperminhash::NUM_REGISTERS;
+use super::store::SimpleDMARegVector;
+use libc::{c_int, size_t, c_longlong};
 use std::mem::size_of;
 use std::slice::from_raw_parts;
 
@@ -42,14 +41,14 @@ pub extern "C" fn MinHashAdd_RedisCommand(
         let mut len: size_t = 0;
         let ptr = RedisModule_StringDMA(key, &mut len, REDISMODULE_WRITE);
 
-        let mut minhash =
-            MinHash::from(SimpleDMARegVector::new(ptr, len));
+        let mut sketch =
+            HyperMinHash::wrap(SimpleDMARegVector::wrap(ptr, len));
 
         for i in 2..argc {
             let mut len: size_t = 0;
             let arg = RedisModule_StringPtrLen(*argv.add(i as usize), &mut len);
 
-            minhash.add(from_raw_parts(arg, len));
+            sketch.add(from_raw_parts(arg, len));
         }
 
         RedisModule_ReplyWithSimpleString(ctx, "OK\0".as_ptr())
@@ -84,9 +83,9 @@ pub extern "C" fn MinHashCount_RedisCommand(
         let mut len: size_t = 0;
         let ptr = RedisModule_StringDMA(key, &mut len, REDISMODULE_WRITE);
 
-        let minhash =
-            MinHash::from(SimpleDMARegVector::new(ptr, len));
+        let sketch =
+            HyperMinHash::wrap(SimpleDMARegVector::wrap(ptr, len));
 
-        RedisModule_ReplyWithLongLong(ctx, minhash.cardinality() as c_longlong)
+        RedisModule_ReplyWithLongLong(ctx, sketch.cardinality() as c_longlong)
     }
 }

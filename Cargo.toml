@@ -1,5 +1,5 @@
 [package]
-name = "redis-minhash"
+name = "redis-hyperminhash"
 version = "0.1.0"
 authors = ["ocadaruma <ocadaruma@gmail.com>"]
 edition = "2018"

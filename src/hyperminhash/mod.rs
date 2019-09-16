@@ -9,6 +9,8 @@ pub const NUM_REGISTERS: usize = 1 << P as usize;
 pub const HLL_Q: usize = 1 << Q as usize;
 pub const HLL_BITS: usize = HASH_BITS - R;
 
+pub type ArrayRegisters = [u32; NUM_REGISTERS];
+
 /// Provides abstraction of HyperMinHash registers.
 pub trait RegVector {
     fn get(&self, idx: usize) -> u32;
@@ -16,13 +18,10 @@ pub trait RegVector {
     fn set(&mut self, idx: usize, value: u32);
 
     fn len(&self) -> usize;
-
-    fn new() -> Self;
 }
 
 /// Plain array-backed RegVector impl.
-/// For unit testing purpose only.
-impl RegVector for [u32; NUM_REGISTERS] {
+impl RegVector for ArrayRegisters {
     fn get(&self, idx: usize) -> u32 {
         self[idx]
     }
@@ -33,9 +32,5 @@ impl RegVector for [u32; NUM_REGISTERS] {
 
     fn len(&self) -> usize {
         NUM_REGISTERS
-    }
-
-    fn new() -> Self {
-        [0; NUM_REGISTERS]
     }
 }

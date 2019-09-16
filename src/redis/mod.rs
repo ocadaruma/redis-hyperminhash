@@ -6,8 +6,8 @@ mod command;
 mod dma;
 mod store;
 
+use command::*;
 use libc::{c_int, c_longlong, size_t};
-use crate::redis::command::*;
 
 const MODULE_NAME: &str = "redis-minhash";
 const MODULE_VERSION: c_int = 1;
