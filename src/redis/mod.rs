@@ -7,9 +7,9 @@ mod dma;
 mod store;
 
 use command::*;
-use libc::{c_int, c_longlong, size_t};
+use libc::{c_double, c_int, c_longlong, size_t};
 
-const MODULE_NAME: &str = "redis-minhash";
+const MODULE_NAME: &str = "redis-hyperminhash";
 const MODULE_VERSION: c_int = 1;
 
 const REDISMODULE_APIVER_1: c_int = 1;
@@ -55,6 +55,10 @@ extern "C" {
     static RedisModule_ReplyWithLongLong: extern "C" fn(
         ctx: *mut RedisModuleCtx,
         ll: c_longlong) -> c_int;
+
+    static RedisModule_ReplyWithDouble: extern "C" fn(
+        ctx: *mut RedisModuleCtx,
+        d: c_double) -> c_int;
 
     static RedisModule_StringDMA: extern "C" fn(
         key: *mut RedisModuleKey,
@@ -140,6 +144,24 @@ extern "C" fn RedisModule_OnLoad(ctx: *mut RedisModuleCtx,
             ctx,
             "mh.merge\0".as_ptr(),
             MinHashMerge_RedisCommand,
+            "write fast\0".as_ptr(),
+            1, -1, 1) != REDISMODULE_OK {
+            return REDISMODULE_ERR;
+        }
+
+        if RedisModule_CreateCommand(
+            ctx,
+            "mh.similarity\0".as_ptr(),
+            MinHashSimilarity_RedisCommand,
+            "write fast\0".as_ptr(),
+            1, -1, 1) != REDISMODULE_OK {
+            return REDISMODULE_ERR;
+        }
+
+        if RedisModule_CreateCommand(
+            ctx,
+            "mh.intersection\0".as_ptr(),
+            MinHashIntersection_RedisCommand,
             "write fast\0".as_ptr(),
             1, -1, 1) != REDISMODULE_OK {
             return REDISMODULE_ERR;

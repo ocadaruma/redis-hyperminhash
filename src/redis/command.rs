@@ -1,8 +1,8 @@
 use super::*;
-use crate::hyperminhash::sketch::HyperMinHash;
+use crate::hyperminhash::sketch::{HyperMinHash, MinHashCombiner};
 use crate::hyperminhash::NUM_REGISTERS;
 use super::store::SimpleDMARegVector;
-use libc::{c_int, size_t, c_longlong};
+use libc::{c_double, c_int, size_t, c_longlong};
 use std::mem::size_of;
 use std::slice::from_raw_parts;
 
@@ -176,5 +176,87 @@ pub extern "C" fn MinHashMerge_RedisCommand(
         }
 
         RedisModule_ReplyWithSimpleString(ctx, "OK\0".as_ptr())
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(unused_variables)]
+#[no_mangle]
+pub extern "C" fn MinHashSimilarity_RedisCommand(
+    ctx: *mut RedisModuleCtx,
+    argv: *mut *mut RedisModuleString,
+    argc: c_int) -> c_int {
+
+    unsafe {
+        RedisModule_AutoMemory(ctx);
+
+        if argc < 2 {
+            return RedisModule_WrongArity(ctx);
+        }
+
+        let mut combiner = MinHashCombiner::new();
+        for i in 1..argc {
+            let key = RedisModule_OpenKey(
+                ctx, *argv.add(i as usize), REDISMODULE_READ | REDISMODULE_WRITE);
+            let key_type = RedisModule_KeyType(key);
+
+            if key_type == REDISMODULE_KEYTYPE_EMPTY {
+                continue;
+            }
+            if key_type != REDISMODULE_KEYTYPE_STRING {
+                return RedisModule_ReplyWithError(ctx, format!("{}\0", ERR_WRONGTYPE).as_ptr());
+            }
+
+            let mut len: size_t = 0;
+            let ptr = RedisModule_StringDMA(key, &mut len, REDISMODULE_WRITE);
+
+            let sketch =
+                HyperMinHash::wrap(SimpleDMARegVector::wrap(ptr, len));
+
+            combiner.combine(&sketch);
+        }
+
+        RedisModule_ReplyWithDouble(ctx, combiner.similarity() as c_double)
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(unused_variables)]
+#[no_mangle]
+pub extern "C" fn MinHashIntersection_RedisCommand(
+    ctx: *mut RedisModuleCtx,
+    argv: *mut *mut RedisModuleString,
+    argc: c_int) -> c_int {
+
+    unsafe {
+        RedisModule_AutoMemory(ctx);
+
+        if argc < 2 {
+            return RedisModule_WrongArity(ctx);
+        }
+
+        let mut combiner = MinHashCombiner::new();
+        for i in 1..argc {
+            let key = RedisModule_OpenKey(
+                ctx, *argv.add(i as usize), REDISMODULE_READ | REDISMODULE_WRITE);
+            let key_type = RedisModule_KeyType(key);
+
+            if key_type == REDISMODULE_KEYTYPE_EMPTY {
+                continue;
+            }
+            if key_type != REDISMODULE_KEYTYPE_STRING {
+                return RedisModule_ReplyWithError(ctx, format!("{}\0", ERR_WRONGTYPE).as_ptr());
+            }
+
+            let mut len: size_t = 0;
+            let ptr = RedisModule_StringDMA(key, &mut len, REDISMODULE_WRITE);
+
+            let sketch =
+                HyperMinHash::wrap(SimpleDMARegVector::wrap(ptr, len));
+
+            combiner.combine(&sketch);
+        }
+
+        RedisModule_ReplyWithLongLong(ctx, combiner.intersection() as c_longlong)
     }
 }
