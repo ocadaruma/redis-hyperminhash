@@ -136,6 +136,15 @@ extern "C" fn RedisModule_OnLoad(ctx: *mut RedisModuleCtx,
             return REDISMODULE_ERR;
         }
 
+        if RedisModule_CreateCommand(
+            ctx,
+            "mh.merge\0".as_ptr(),
+            MinHashMerge_RedisCommand,
+            "write fast\0".as_ptr(),
+            1, -1, 1) != REDISMODULE_OK {
+            return REDISMODULE_ERR;
+        }
+
         REDISMODULE_OK
     }
 }

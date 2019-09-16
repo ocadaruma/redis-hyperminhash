@@ -69,23 +69,112 @@ pub extern "C" fn MinHashCount_RedisCommand(
         if argc < 2 {
             return RedisModule_WrongArity(ctx);
         }
+    }
 
+    // single key case
+    if argc == 2 {
+        unsafe {
+            let key = RedisModule_OpenKey(ctx, *argv.add(1), REDISMODULE_READ | REDISMODULE_WRITE);
+            let key_type = RedisModule_KeyType(key);
+
+            if key_type == REDISMODULE_KEYTYPE_EMPTY {
+                return RedisModule_ReplyWithLongLong(ctx, 0);
+            }
+            if key_type != REDISMODULE_KEYTYPE_STRING {
+                return RedisModule_ReplyWithError(ctx, format!("{}\0", ERR_WRONGTYPE).as_ptr());
+            }
+
+            let mut len: size_t = 0;
+            let ptr = RedisModule_StringDMA(key, &mut len, REDISMODULE_WRITE);
+
+            let sketch = HyperMinHash::wrap(SimpleDMARegVector::wrap(ptr, len));
+            return RedisModule_ReplyWithLongLong(ctx, sketch.cardinality() as c_longlong);
+        }
+    }
+
+    // multiple key case
+    let mut union_sketch = HyperMinHash::wrap([0; NUM_REGISTERS]);
+    unsafe {
+        for i in 1..argc {
+            let key = RedisModule_OpenKey(
+                ctx, *argv.add(i as usize), REDISMODULE_READ | REDISMODULE_WRITE);
+            let key_type = RedisModule_KeyType(key);
+
+            if key_type == REDISMODULE_KEYTYPE_EMPTY {
+                continue;
+            }
+            if key_type != REDISMODULE_KEYTYPE_STRING {
+                return RedisModule_ReplyWithError(ctx, format!("{}\0", ERR_WRONGTYPE).as_ptr());
+            }
+
+            let mut len: size_t = 0;
+            let ptr = RedisModule_StringDMA(key, &mut len, REDISMODULE_WRITE);
+
+            let sketch =
+                HyperMinHash::wrap(SimpleDMARegVector::wrap(ptr, len));
+
+            union_sketch.merge(&sketch);
+        }
+
+        RedisModule_ReplyWithLongLong(ctx, union_sketch.cardinality() as c_longlong)
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(unused_variables)]
+#[no_mangle]
+pub extern "C" fn MinHashMerge_RedisCommand(
+    ctx: *mut RedisModuleCtx,
+    argv: *mut *mut RedisModuleString,
+    argc: c_int) -> c_int {
+
+    unsafe {
+        RedisModule_AutoMemory(ctx);
+
+        if argc < 2 {
+            return RedisModule_WrongArity(ctx);
+        }
+
+        // handle target key
         let key = RedisModule_OpenKey(ctx, *argv.add(1), REDISMODULE_READ | REDISMODULE_WRITE);
         let key_type = RedisModule_KeyType(key);
 
-        if key_type == REDISMODULE_KEYTYPE_EMPTY {
-            return RedisModule_ReplyWithLongLong(ctx, 0);
-        }
-        if key_type != REDISMODULE_KEYTYPE_STRING {
+        if key_type != REDISMODULE_KEYTYPE_EMPTY && key_type != REDISMODULE_KEYTYPE_STRING {
             return RedisModule_ReplyWithError(ctx, format!("{}\0", ERR_WRONGTYPE).as_ptr());
+        }
+        if key_type == REDISMODULE_KEYTYPE_EMPTY {
+            if RedisModule_StringTruncate(key, size_of::<u32>() * NUM_REGISTERS) != REDISMODULE_OK {
+                return REDISMODULE_ERR;
+            }
         }
 
         let mut len: size_t = 0;
         let ptr = RedisModule_StringDMA(key, &mut len, REDISMODULE_WRITE);
 
-        let sketch =
+        let mut union_sketch =
             HyperMinHash::wrap(SimpleDMARegVector::wrap(ptr, len));
 
-        RedisModule_ReplyWithLongLong(ctx, sketch.cardinality() as c_longlong)
+        for i in 2..argc {
+            let key = RedisModule_OpenKey(
+                ctx, *argv.add(i as usize), REDISMODULE_READ | REDISMODULE_WRITE);
+            let key_type = RedisModule_KeyType(key);
+
+            if key_type == REDISMODULE_KEYTYPE_EMPTY {
+                continue;
+            }
+            if key_type != REDISMODULE_KEYTYPE_STRING {
+                return RedisModule_ReplyWithError(ctx, format!("{}\0", ERR_WRONGTYPE).as_ptr());
+            }
+
+            let mut len: size_t = 0;
+            let ptr = RedisModule_StringDMA(key, &mut len, REDISMODULE_WRITE);
+
+            let sketch =
+                HyperMinHash::wrap(SimpleDMARegVector::wrap(ptr, len));
+
+            union_sketch.merge(&sketch);
+        }
+
+        RedisModule_ReplyWithSimpleString(ctx, "OK\0".as_ptr())
     }
 }
