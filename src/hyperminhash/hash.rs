@@ -110,7 +110,7 @@ pub fn murmur3_x64_128(element: &[u8], seed: u64) -> u128 {
     h1 = h1.wrapping_add(h2);
     h2 = h2.wrapping_add(h1);
 
-    return (h1 as u128) << 64 | (h2 as u128);
+    (h1 as u128) << 64 | (h2 as u128)
 }
 
 fn fmix64(k: u64) -> u64 {
