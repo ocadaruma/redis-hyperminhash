@@ -1,8 +1,8 @@
-use crate::hyperminhash::{RegVector, NUM_REGISTERS};
+use crate::hyperminhash::{RegisterVector, NUM_REGISTERS};
 use super::dma::CByteArray;
 use std::mem::size_of;
 
-/// RegVector impl which stores registers as 16-bit integer array.
+/// RegisterVector impl which stores registers as 16-bit integer array.
 /// Each integer is stored in BigEndian.
 pub struct DenseVector {
     data: CByteArray,
@@ -17,7 +17,7 @@ impl DenseVector {
     }
 }
 
-impl RegVector for DenseVector {
+impl RegisterVector for DenseVector {
     fn get(&self, idx: usize) -> u32 {
         let offset = idx * DenseVector::SINGLE_REGISTER_BYTES;
 

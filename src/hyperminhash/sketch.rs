@@ -8,20 +8,20 @@ const HLL_ALPHA_INF: f64 = 0.721347520444481703680;
 const HASH_SEED: u64 = 0x1fb03e03;
 
 /// Represents HyperMinHash sketch
-pub struct HyperMinHash<T : RegVector> {
+pub struct HyperMinHash<T : RegisterVector> {
     pub registers: T,
 }
 
 /// HyperLogLog-part of HyperMinHash.
 /// Cardinality estimation is based on Otmar Ertl, arXiv:1702.01284 "New cardinality estimation algorithms for HyperLogLog sketches"
 /// which is adopted in Redis.
-impl <T : RegVector> HyperMinHash<T> {
+impl <T : RegisterVector> HyperMinHash<T> {
     pub fn wrap(registers: T) -> Self {
         Self { registers, }
     }
 
     /// Merge given sketch into this sketch destructively.
-    pub fn merge<U : RegVector>(&mut self, other: &HyperMinHash<U>) {
+    pub fn merge<U : RegisterVector>(&mut self, other: &HyperMinHash<U>) {
         for i in 0..NUM_REGISTERS {
             let reg = other.registers.get(i);
             if reg > self.registers.get(i) {
@@ -74,7 +74,7 @@ impl MinHashCombiner {
         }
     }
 
-    pub fn combine<T : RegVector>(&mut self, sketch: &HyperMinHash<T>) {
+    pub fn combine<T : RegisterVector>(&mut self, sketch: &HyperMinHash<T>) {
         // number of sketches merged so far
         let num_sketch = self.cardinalities.len();
         let mut reg_histo = [0u32; HLL_BITS];

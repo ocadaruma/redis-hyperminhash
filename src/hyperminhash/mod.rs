@@ -1,3 +1,5 @@
+//! Module contains Redis-independent HyperMinHash features.
+
 pub mod sketch;
 mod hash;
 
@@ -12,7 +14,7 @@ pub const HLL_BITS: usize = HASH_BITS - R;
 pub type ArrayRegisters = [u32; NUM_REGISTERS];
 
 /// Provides abstraction of HyperMinHash registers.
-pub trait RegVector {
+pub trait RegisterVector {
     fn get(&self, idx: usize) -> u32;
 
     fn set(&mut self, idx: usize, value: u32);
@@ -20,8 +22,8 @@ pub trait RegVector {
     fn len(&self) -> usize;
 }
 
-/// Plain array-backed RegVector impl.
-impl RegVector for ArrayRegisters {
+/// Plain array-backed RegisterVector impl.
+impl RegisterVector for ArrayRegisters {
     fn get(&self, idx: usize) -> u32 {
         self[idx]
     }

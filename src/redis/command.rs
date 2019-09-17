@@ -6,10 +6,7 @@ use repr::{HyperMinHashRepr, Registers};
 use libc::{c_double, c_int, size_t, c_longlong};
 use std::slice::from_raw_parts;
 
-const ERR_WRONGTYPE: &str = "WRONGTYPE Key is not a valid HyperMinHash string value.";
-
 #[allow(non_snake_case)]
-#[allow(unused_variables)]
 #[no_mangle]
 pub extern "C" fn MinHashAdd_RedisCommand(
     ctx: *mut RedisModuleCtx,
@@ -23,13 +20,11 @@ pub extern "C" fn MinHashAdd_RedisCommand(
             return RedisModule_WrongArity(ctx);
         }
 
-        let key = RedisModule_OpenKey(
-            ctx, *argv.add(1), REDISMODULE_READ | REDISMODULE_WRITE);
-        let key_type = RedisModule_KeyType(key);
+        let Key(key, key_type) = open_rw(ctx, *argv.add(1));
 
         let mut new_key: bool = false;
         if key_type != REDISMODULE_KEYTYPE_EMPTY && key_type != REDISMODULE_KEYTYPE_STRING {
-            return RedisModule_ReplyWithError(ctx, format!("{}\0", ERR_WRONGTYPE).as_ptr());
+            return reply_wrong_type(ctx);
         }
         if key_type == REDISMODULE_KEYTYPE_EMPTY {
             if RedisModule_StringTruncate(key, HyperMinHashRepr::dense_len()) != REDISMODULE_OK {
@@ -44,10 +39,10 @@ pub extern "C" fn MinHashAdd_RedisCommand(
 
         if new_key {
             HyperMinHashRepr::initialize(&mut bytes);
-            RedisModule_Log(ctx, "debug\0".as_ptr(), "key initialized\0".as_ptr());
+            log_debug(ctx, "key initialized");
         }
         match HyperMinHashRepr::parse(bytes) {
-            None => RedisModule_ReplyWithError(ctx, format!("{}\0", ERR_WRONGTYPE).as_ptr()),
+            None => reply_wrong_type(ctx),
             Some(mut repr) => {
                 let mut updated_count = 0;
                 let mut sketch = match repr.registers() {
@@ -66,14 +61,13 @@ pub extern "C" fn MinHashAdd_RedisCommand(
                     repr.invalidate_cache();
                 }
 
-                RedisModule_ReplyWithSimpleString(ctx, "OK\0".as_ptr())
+                RedisModule_ReplyWithLongLong(ctx, if updated_count > 0 { 1 } else { 0 })
             },
         }
     }
 }
 
 #[allow(non_snake_case)]
-#[allow(unused_variables)]
 #[no_mangle]
 pub extern "C" fn MinHashCount_RedisCommand(
     ctx: *mut RedisModuleCtx,
@@ -98,7 +92,7 @@ pub extern "C" fn MinHashCount_RedisCommand(
                 return RedisModule_ReplyWithLongLong(ctx, 0);
             }
             if key_type != REDISMODULE_KEYTYPE_STRING {
-                return RedisModule_ReplyWithError(ctx, format!("{}\0", ERR_WRONGTYPE).as_ptr());
+                return reply_wrong_type(ctx);
             }
 
             let mut len: size_t = 0;
@@ -106,7 +100,7 @@ pub extern "C" fn MinHashCount_RedisCommand(
 
             return match HyperMinHashRepr::parse(CByteArray::wrap(ptr, len)) {
                 None =>
-                    RedisModule_ReplyWithError(ctx, format!("{}\0", ERR_WRONGTYPE).as_ptr()),
+                    reply_wrong_type(ctx),
                 Some(mut repr) => {
                     if repr.cache_valid() {
                         RedisModule_ReplyWithLongLong(ctx, repr.get_cache() as c_longlong)
@@ -127,22 +121,20 @@ pub extern "C" fn MinHashCount_RedisCommand(
     let mut union_sketch = HyperMinHash::wrap([0; NUM_REGISTERS]);
     unsafe {
         for i in 1..argc {
-            let key = RedisModule_OpenKey(
-                ctx, *argv.add(i as usize), REDISMODULE_READ | REDISMODULE_WRITE);
-            let key_type = RedisModule_KeyType(key);
+            let Key(key, key_type) = open_ro(ctx, *argv.add(i as usize));
 
             if key_type == REDISMODULE_KEYTYPE_EMPTY {
                 continue;
             }
             if key_type != REDISMODULE_KEYTYPE_STRING {
-                return RedisModule_ReplyWithError(ctx, format!("{}\0", ERR_WRONGTYPE).as_ptr());
+                return reply_wrong_type(ctx);
             }
 
             let mut len: size_t = 0;
             let ptr = RedisModule_StringDMA(key, &mut len, REDISMODULE_WRITE);
 
             match HyperMinHashRepr::parse(CByteArray::wrap(ptr, len)) {
-                None => return RedisModule_ReplyWithError(ctx, format!("{}\0", ERR_WRONGTYPE).as_ptr()),
+                None => return reply_wrong_type(ctx),
                 Some(repr) => {
                     union_sketch.merge(&match repr.registers() {
                         Registers::Dense(registers) => HyperMinHash::wrap(registers),
@@ -156,7 +148,6 @@ pub extern "C" fn MinHashCount_RedisCommand(
 }
 
 #[allow(non_snake_case)]
-#[allow(unused_variables)]
 #[no_mangle]
 pub extern "C" fn MinHashMerge_RedisCommand(
     ctx: *mut RedisModuleCtx,
@@ -171,12 +162,11 @@ pub extern "C" fn MinHashMerge_RedisCommand(
         }
 
         // handle target key
-        let key = RedisModule_OpenKey(ctx, *argv.add(1), REDISMODULE_READ | REDISMODULE_WRITE);
-        let key_type = RedisModule_KeyType(key);
+        let Key(key, key_type) = open_rw(ctx, *argv.add(1));
 
         let mut new_key: bool = false;
         if key_type != REDISMODULE_KEYTYPE_EMPTY && key_type != REDISMODULE_KEYTYPE_STRING {
-            return RedisModule_ReplyWithError(ctx, format!("{}\0", ERR_WRONGTYPE).as_ptr());
+            return reply_wrong_type(ctx);
         }
         if key_type == REDISMODULE_KEYTYPE_EMPTY {
             if RedisModule_StringTruncate(key, HyperMinHashRepr::dense_len()) != REDISMODULE_OK {
@@ -193,33 +183,31 @@ pub extern "C" fn MinHashMerge_RedisCommand(
             HyperMinHashRepr::initialize(&mut bytes);
         }
 
-        let mut union_sketch = match HyperMinHashRepr::parse(bytes) {
+        let mut repr = match HyperMinHashRepr::parse(bytes) {
             None =>
-                return RedisModule_ReplyWithError(ctx, format!("{}\0", ERR_WRONGTYPE).as_ptr()),
-            Some(repr) => {
-                match repr.registers() {
-                    Registers::Dense(registers) => HyperMinHash::wrap(registers),
-                }
-            },
+                return reply_wrong_type(ctx),
+            Some(repr) => repr,
+        };
+        let mut union_sketch = match repr.registers() {
+            Registers::Dense(registers) => HyperMinHash::wrap(registers),
         };
 
         for i in 2..argc {
-            let key = RedisModule_OpenKey(
-                ctx, *argv.add(i as usize), REDISMODULE_READ | REDISMODULE_WRITE);
-            let key_type = RedisModule_KeyType(key);
+            let Key(key, key_type) = open_ro(ctx, *argv.add(i as usize));
 
             if key_type == REDISMODULE_KEYTYPE_EMPTY {
                 continue;
             }
             if key_type != REDISMODULE_KEYTYPE_STRING {
-                return RedisModule_ReplyWithError(ctx, format!("{}\0", ERR_WRONGTYPE).as_ptr());
+                return reply_wrong_type(ctx);
             }
 
             let mut len: size_t = 0;
             let ptr = RedisModule_StringDMA(key, &mut len, REDISMODULE_WRITE);
 
             match HyperMinHashRepr::parse(CByteArray::wrap(ptr, len)) {
-                None => return RedisModule_ReplyWithError(ctx, format!("{}\0", ERR_WRONGTYPE).as_ptr()),
+                None =>
+                    return reply_wrong_type(ctx),
                 Some(repr) => {
                     union_sketch.merge(&match repr.registers() {
                         Registers::Dense(registers) => HyperMinHash::wrap(registers),
@@ -227,13 +215,13 @@ pub extern "C" fn MinHashMerge_RedisCommand(
                 },
             }
         }
+        repr.invalidate_cache();
 
-        RedisModule_ReplyWithSimpleString(ctx, "OK\0".as_ptr())
+        reply_ok(ctx)
     }
 }
 
 #[allow(non_snake_case)]
-#[allow(unused_variables)]
 #[no_mangle]
 pub extern "C" fn MinHashSimilarity_RedisCommand(
     ctx: *mut RedisModuleCtx,
@@ -249,15 +237,13 @@ pub extern "C" fn MinHashSimilarity_RedisCommand(
 
         let mut combiner = MinHashCombiner::new();
         for i in 1..argc {
-            let key = RedisModule_OpenKey(
-                ctx, *argv.add(i as usize), REDISMODULE_READ | REDISMODULE_WRITE);
-            let key_type = RedisModule_KeyType(key);
+            let Key(key, key_type) = open_ro(ctx, *argv.add(i as usize));
 
             if key_type == REDISMODULE_KEYTYPE_EMPTY {
                 continue;
             }
             if key_type != REDISMODULE_KEYTYPE_STRING {
-                return RedisModule_ReplyWithError(ctx, format!("{}\0", ERR_WRONGTYPE).as_ptr());
+                return reply_wrong_type(ctx);
             }
 
             let mut len: size_t = 0;
@@ -265,7 +251,7 @@ pub extern "C" fn MinHashSimilarity_RedisCommand(
 
             match HyperMinHashRepr::parse(CByteArray::wrap(ptr, len)) {
                 None =>
-                    return RedisModule_ReplyWithError(ctx, format!("{}\0", ERR_WRONGTYPE).as_ptr()),
+                    return reply_wrong_type(ctx),
                 Some(repr) => {
                     combiner.combine(&match repr.registers() {
                         Registers::Dense(registers) => HyperMinHash::wrap(registers),
@@ -279,7 +265,6 @@ pub extern "C" fn MinHashSimilarity_RedisCommand(
 }
 
 #[allow(non_snake_case)]
-#[allow(unused_variables)]
 #[no_mangle]
 pub extern "C" fn MinHashIntersection_RedisCommand(
     ctx: *mut RedisModuleCtx,
@@ -295,15 +280,13 @@ pub extern "C" fn MinHashIntersection_RedisCommand(
 
         let mut combiner = MinHashCombiner::new();
         for i in 1..argc {
-            let key = RedisModule_OpenKey(
-                ctx, *argv.add(i as usize), REDISMODULE_READ | REDISMODULE_WRITE);
-            let key_type = RedisModule_KeyType(key);
+            let Key(key, key_type) = open_ro(ctx, *argv.add(i as usize));
 
             if key_type == REDISMODULE_KEYTYPE_EMPTY {
                 continue;
             }
             if key_type != REDISMODULE_KEYTYPE_STRING {
-                return RedisModule_ReplyWithError(ctx, format!("{}\0", ERR_WRONGTYPE).as_ptr());
+                return reply_wrong_type(ctx);
             }
 
             let mut len: size_t = 0;
@@ -311,7 +294,7 @@ pub extern "C" fn MinHashIntersection_RedisCommand(
 
             match HyperMinHashRepr::parse(CByteArray::wrap(ptr, len)) {
                 None =>
-                    return RedisModule_ReplyWithError(ctx, format!("{}\0", ERR_WRONGTYPE).as_ptr()),
+                    return reply_wrong_type(ctx),
                 Some(repr) => {
                     combiner.combine(&match repr.registers() {
                         Registers::Dense(registers) => HyperMinHash::wrap(registers),
@@ -321,5 +304,45 @@ pub extern "C" fn MinHashIntersection_RedisCommand(
         }
 
         RedisModule_ReplyWithLongLong(ctx, combiner.intersection() as c_longlong)
+    }
+}
+
+struct Key(*mut RedisModuleKey, c_int);
+
+fn open_ro(ctx: *mut RedisModuleCtx, string: *mut RedisModuleString) -> Key {
+    unsafe {
+        let ptr = RedisModule_OpenKey(ctx, string, REDISMODULE_READ);
+        let key_type = RedisModule_KeyType(ptr);
+
+        Key(ptr, key_type)
+    }
+}
+
+fn open_rw(ctx: *mut RedisModuleCtx, string: *mut RedisModuleString) -> Key {
+    unsafe {
+        let ptr = RedisModule_OpenKey(ctx, string, REDISMODULE_READ | REDISMODULE_WRITE);
+        let key_type = RedisModule_KeyType(ptr);
+
+        Key(ptr, key_type)
+    }
+}
+
+fn reply_wrong_type(ctx: *mut RedisModuleCtx) -> c_int {
+    unsafe {
+        RedisModule_ReplyWithError(
+            ctx, "WRONGTYPE Key is not a valid HyperMinHash string value.\0".as_ptr())
+    }
+}
+
+fn reply_ok(ctx: *mut RedisModuleCtx) -> c_int {
+    unsafe {
+        RedisModule_ReplyWithSimpleString(ctx, "OK\0".as_ptr())
+    }
+}
+
+fn log_debug(ctx: *mut RedisModuleCtx, message: &str) {
+    unsafe {
+        RedisModule_Log(
+            ctx, "debug\0".as_ptr(), format!("{}\0", message).as_ptr());
     }
 }
