@@ -16,8 +16,6 @@ pub trait RegisterVector {
     fn register_at(&self, idx: usize) -> u32;
 
     fn set_register(&mut self, idx: usize, value: u32);
-
-    fn num_registers(&self) -> usize;
 }
 
 pub type ArrayRegisters = [u32; NUM_REGISTERS];
@@ -34,9 +32,5 @@ impl RegisterVector for ArrayRegisters {
 
     fn set_register(&mut self, idx: usize, value: u32) {
         self[idx] = value;
-    }
-
-    fn num_registers(&self) -> usize {
-        self.len()
     }
 }

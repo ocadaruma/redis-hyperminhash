@@ -22,7 +22,7 @@ impl <T : RegisterVector> HyperMinHash<T> {
 
     /// Merge given sketch into this sketch destructively.
     pub fn merge<U : RegisterVector>(&mut self, other: &HyperMinHash<U>) {
-        for i in 0..self.registers.num_registers() {
+        for i in 0..NUM_REGISTERS {
             let reg = other.registers.register_at(i);
             if reg > self.registers.register_at(i) {
                 self.registers.set_register(i, reg);
@@ -49,7 +49,7 @@ impl <T : RegisterVector> HyperMinHash<T> {
 
     pub fn cardinality(&self) -> f64 {
         let mut reg_histo = [0u32; HLL_BITS];
-        for i in 0..self.registers.num_registers() {
+        for i in 0..NUM_REGISTERS {
             reg_histo[self.registers.register_at(i) as usize >> R] += 1;
         }
 
@@ -79,7 +79,7 @@ impl MinHashCombiner {
         let num_sketch = self.cardinalities.len();
         let mut reg_histo = [0u32; HLL_BITS];
 
-        for i in 0..sketch.registers.num_registers() {
+        for i in 0..NUM_REGISTERS {
             let reg = sketch.registers.register_at(i);
 
             // merge into self

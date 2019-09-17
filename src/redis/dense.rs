@@ -34,8 +34,4 @@ impl RegisterVector for DenseVector {
         self.data[offset + 0] = ((value >> 0) & 0xff) as u8;
         self.data[offset + 1] = ((value >> 8) & 0xff) as u8;
     }
-
-    fn num_registers(&self) -> usize {
-        self.data.len()
-    }
 }
