@@ -3,8 +3,9 @@
 extern crate libc;
 
 mod command;
+mod dense;
 mod dma;
-mod store;
+mod repr;
 
 use command::*;
 use libc::{c_double, c_int, c_longlong, size_t};
@@ -82,20 +83,11 @@ extern "C" {
 
     static RedisModule_WrongArity: extern "C" fn(ctx: *mut RedisModuleCtx) -> c_int;
 
-    static RedisModule_CreateString: extern "C" fn(
-        ctx: *mut RedisModuleCtx,
-        ptr: *const u8,
-        len: size_t) -> *mut RedisModuleString;
-
     static RedisModule_ReplyWithError: extern "C" fn(
         ctx: *mut RedisModuleCtx,
         err: *const u8) -> c_int;
 
-    static RedisModule_Calloc: extern "C" fn(nmemb: size_t, size: size_t) -> *mut u8;
-
     static RedisModule_KeyType: extern "C" fn(kp: *mut RedisModuleKey) -> c_int;
-
-    static RedisModule_Free: extern "C" fn(ptr: *mut u8);
 
     static RedisModule_ReplyWithSimpleString: extern "C" fn(
         ctx: *mut RedisModuleCtx,
@@ -110,9 +102,11 @@ extern "C" {
 #[allow(non_snake_case)]
 #[allow(unused_variables)]
 #[no_mangle]
-extern "C" fn RedisModule_OnLoad(ctx: *mut RedisModuleCtx,
-                                 argv: *mut *mut RedisModuleString,
-                                 argc: c_int) -> c_int {
+extern "C" fn RedisModule_OnLoad(
+    ctx: *mut RedisModuleCtx,
+    argv: *mut *mut RedisModuleString,
+    argc: c_int) -> c_int {
+
     unsafe {
         if Export_RedisModule_Init(
             ctx,

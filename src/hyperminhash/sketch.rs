@@ -12,6 +12,9 @@ pub struct HyperMinHash<T : RegVector> {
     pub registers: T,
 }
 
+/// HyperLogLog-part of HyperMinHash.
+/// Cardinality estimation is based on Otmar Ertl, arXiv:1702.01284 "New cardinality estimation algorithms for HyperLogLog sketches"
+/// which is adopted in Redis.
 impl <T : RegVector> HyperMinHash<T> {
     pub fn wrap(registers: T) -> Self {
         Self { registers, }
@@ -27,7 +30,7 @@ impl <T : RegVector> HyperMinHash<T> {
         }
     }
 
-    pub fn add(&mut self, element: &[u8]) {
+    pub fn add(&mut self, element: &[u8]) -> bool {
         let hash = murmur3_x64_128(element, HASH_SEED);
 
         let register = (hash >> (HASH_BITS - P) as u128) as usize;
@@ -38,7 +41,10 @@ impl <T : RegVector> HyperMinHash<T> {
         let packed = rbits as u32 | (pat_len << R as u32);
         if packed > self.registers.get(register) {
             self.registers.set(register, packed);
+            return true
         }
+
+        false
     }
 
     pub fn cardinality(&self) -> f64 {
@@ -51,6 +57,7 @@ impl <T : RegVector> HyperMinHash<T> {
     }
 }
 
+/// MinHash-part of HyperMinHash.
 /// Combines multiple sketches, estimate their similarity and intersection cardinality.
 pub struct MinHashCombiner {
     union: HyperMinHash<ArrayRegisters>,
@@ -249,6 +256,14 @@ mod tests {
         assert_eq!(pat_len(&0u128), 65);
 
         assert_eq!(pat_len(&0x1_00000000_00000000u128), 50);
+    }
+
+    #[test]
+    fn test_add() {
+        let mut sketch: HyperMinHash<ArrayRegisters> = HyperMinHash::wrap([0; NUM_REGISTERS]);
+
+        assert!(sketch.add("a".as_bytes()));
+        assert!(!sketch.add("a".as_bytes()));
     }
 
     #[test]

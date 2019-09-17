@@ -12,8 +12,10 @@ impl CByteArray {
         CByteArray { underlying: ptr, len, }
     }
 
-    pub fn ptr(&self) -> *mut u8 {
-        self.underlying
+    pub fn offset(&self, offset: size_t) -> Self {
+        Self::wrap(unsafe {
+            self.underlying.add(offset)
+        }, self.len - offset)
     }
 
     pub fn len(&self) -> usize {
