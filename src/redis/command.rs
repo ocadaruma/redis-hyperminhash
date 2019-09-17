@@ -64,6 +64,7 @@ pub extern "C" fn MinHashAdd_RedisCommand(
                 }
                 if updated_count > 0 {
                     repr.invalidate_cache();
+                    RedisModule_ReplicateVerbatim(ctx);
                 }
 
                 RedisModule_ReplyWithLongLong(ctx, if updated_count > 0 { 1 } else { 0 })
@@ -115,6 +116,7 @@ pub extern "C" fn MinHashCount_RedisCommand(
                         };
                         let cardinality = sketch.cardinality();
                         repr.set_cache(cardinality as u64);
+                        RedisModule_ReplicateVerbatim(ctx);
                         RedisModule_ReplyWithLongLong(ctx, cardinality as c_longlong)
                     }
                 },
@@ -217,6 +219,7 @@ pub extern "C" fn MinHashMerge_RedisCommand(
             }
         }
         repr.invalidate_cache();
+        RedisModule_ReplicateVerbatim(ctx);
 
         reply_ok(ctx)
     }
@@ -304,7 +307,7 @@ pub extern "C" fn MinHashIntersection_RedisCommand(
             }
         }
 
-        RedisModule_ReplyWithLongLong(ctx, combiner.intersection() as c_longlong)
+        RedisModule_ReplyWithLongLong(ctx, combiner.intersection().round() as c_longlong)
     }
 }
 

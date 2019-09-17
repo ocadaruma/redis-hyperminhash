@@ -93,6 +93,8 @@ extern "C" {
         ctx: *mut RedisModuleCtx,
         msg: *const u8) -> c_int;
 
+    static RedisModule_ReplicateVerbatim: extern "C" fn(ctx: *mut RedisModuleCtx) -> c_int;
+
     static RedisModule_Log: extern "C" fn(
         ctx: *mut RedisModuleCtx,
         level: *const u8,
@@ -147,7 +149,7 @@ extern "C" fn RedisModule_OnLoad(
             ctx,
             "mh.similarity\0".as_ptr(),
             MinHashSimilarity_RedisCommand,
-            "write fast\0".as_ptr(),
+            "readonly fast\0".as_ptr(),
             1, -1, 1) != REDISMODULE_OK {
             return REDISMODULE_ERR;
         }
@@ -156,7 +158,7 @@ extern "C" fn RedisModule_OnLoad(
             ctx,
             "mh.intersection\0".as_ptr(),
             MinHashIntersection_RedisCommand,
-            "write fast\0".as_ptr(),
+            "readonly fast\0".as_ptr(),
             1, -1, 1) != REDISMODULE_OK {
             return REDISMODULE_ERR;
         }
