@@ -79,7 +79,7 @@ impl MinHashCombiner {
         let num_sketch = self.cardinalities.len();
         let mut reg_histo = [0u32; HLL_BITS];
 
-        for i in 0..self.reg_intersection.len() {
+        for i in 0..sketch.registers.num_registers() {
             let reg = sketch.registers.register_at(i);
 
             // merge into self
