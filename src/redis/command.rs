@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::hyperminhash::sketch::{HyperMinHash, MinHashCombiner};
-use crate::hyperminhash::NUM_REGISTERS;
+use crate::hyperminhash::new_array_registers;
 use dma::CByteArray;
 use repr::{HyperMinHashRepr, Registers};
 use libc::{c_double, c_int, size_t, c_longlong};
@@ -125,7 +125,7 @@ pub extern "C" fn MinHashCount_RedisCommand(
     }
 
     // multiple key case
-    let mut union_sketch = HyperMinHash::wrap([0; NUM_REGISTERS]);
+    let mut union_sketch = HyperMinHash::wrap(new_array_registers());
     unsafe {
         for i in 1..argc {
             let Key(key, key_type) = open_ro(ctx, *argv.add(i as usize));

@@ -11,28 +11,32 @@ pub const NUM_REGISTERS: usize = 1 << P as usize;
 pub const HLL_Q: usize = 1 << Q as usize;
 pub const HLL_BITS: usize = HASH_BITS - R;
 
-pub type ArrayRegisters = [u32; NUM_REGISTERS];
-
 /// Provides abstraction of HyperMinHash registers.
 pub trait RegisterVector {
-    fn get(&self, idx: usize) -> u32;
+    fn register_at(&self, idx: usize) -> u32;
 
-    fn set(&mut self, idx: usize, value: u32);
+    fn set_register(&mut self, idx: usize, value: u32);
 
-    fn len(&self) -> usize;
+    fn num_registers(&self) -> usize;
+}
+
+pub type ArrayRegisters = [u32; NUM_REGISTERS];
+
+pub fn new_array_registers() -> ArrayRegisters {
+    [0u32; NUM_REGISTERS]
 }
 
 /// Plain array-backed RegisterVector impl.
 impl RegisterVector for ArrayRegisters {
-    fn get(&self, idx: usize) -> u32 {
+    fn register_at(&self, idx: usize) -> u32 {
         self[idx]
     }
 
-    fn set(&mut self, idx: usize, value: u32) {
+    fn set_register(&mut self, idx: usize, value: u32) {
         self[idx] = value;
     }
 
-    fn len(&self) -> usize {
-        NUM_REGISTERS
+    fn num_registers(&self) -> usize {
+        self.len()
     }
 }

@@ -22,10 +22,10 @@ impl <T : RegisterVector> HyperMinHash<T> {
 
     /// Merge given sketch into this sketch destructively.
     pub fn merge<U : RegisterVector>(&mut self, other: &HyperMinHash<U>) {
-        for i in 0..NUM_REGISTERS {
-            let reg = other.registers.get(i);
-            if reg > self.registers.get(i) {
-                self.registers.set(i, reg);
+        for i in 0..self.registers.num_registers() {
+            let reg = other.registers.register_at(i);
+            if reg > self.registers.register_at(i) {
+                self.registers.set_register(i, reg);
             }
         }
     }
@@ -39,8 +39,8 @@ impl <T : RegisterVector> HyperMinHash<T> {
         let rbits = hash as usize & ((1 << R) - 1);
 
         let packed = rbits as u32 | (pat_len << R as u32);
-        if packed > self.registers.get(register) {
-            self.registers.set(register, packed);
+        if packed > self.registers.register_at(register) {
+            self.registers.set_register(register, packed);
             return true
         }
 
@@ -49,8 +49,8 @@ impl <T : RegisterVector> HyperMinHash<T> {
 
     pub fn cardinality(&self) -> f64 {
         let mut reg_histo = [0u32; HLL_BITS];
-        for i in 0..NUM_REGISTERS {
-            reg_histo[self.registers.get(i) as usize >> R] += 1;
+        for i in 0..self.registers.num_registers() {
+            reg_histo[self.registers.register_at(i) as usize >> R] += 1;
         }
 
         cardinality(&reg_histo)
@@ -68,8 +68,8 @@ pub struct MinHashCombiner {
 impl MinHashCombiner {
     pub fn new() -> MinHashCombiner {
         Self {
-            union: HyperMinHash::wrap([0u32; NUM_REGISTERS]),
-            reg_intersection: [0u32; NUM_REGISTERS],
+            union: HyperMinHash::wrap(new_array_registers()),
+            reg_intersection: new_array_registers(),
             cardinalities: Vec::new(),
         }
     }
@@ -79,8 +79,8 @@ impl MinHashCombiner {
         let num_sketch = self.cardinalities.len();
         let mut reg_histo = [0u32; HLL_BITS];
 
-        for i in 0..NUM_REGISTERS {
-            let reg = sketch.registers.get(i);
+        for i in 0..self.reg_intersection.len() {
+            let reg = sketch.registers.register_at(i);
 
             // merge into self
             if reg > self.union.registers[i] {
@@ -114,7 +114,7 @@ impl MinHashCombiner {
         let mut c = 0u64;
         let mut n = 0u64;
 
-        for i in 0..NUM_REGISTERS {
+        for i in 0..self.reg_intersection.len() {
             if self.reg_intersection[i] != 0 {
                 c += 1;
             }
@@ -166,7 +166,7 @@ impl MinHashCombiner {
             }
         }
 
-        x * NUM_REGISTERS as f64
+        x * self.reg_intersection.len() as f64
     }
 }
 
@@ -246,7 +246,7 @@ mod tests {
 
     #[test]
     fn test_wrap() {
-        let sketch: HyperMinHash<ArrayRegisters> = HyperMinHash::wrap([0; NUM_REGISTERS]);
+        let sketch: HyperMinHash<ArrayRegisters> = HyperMinHash::wrap(new_array_registers());
 
         assert_eq!(sketch.registers.len(), NUM_REGISTERS);
     }
@@ -260,7 +260,7 @@ mod tests {
 
     #[test]
     fn test_add() {
-        let mut sketch: HyperMinHash<ArrayRegisters> = HyperMinHash::wrap([0; NUM_REGISTERS]);
+        let mut sketch: HyperMinHash<ArrayRegisters> = HyperMinHash::wrap(new_array_registers());
 
         assert!(sketch.add("a".as_bytes()));
         assert!(!sketch.add("a".as_bytes()));
@@ -268,7 +268,7 @@ mod tests {
 
     #[test]
     fn test_cardinality() {
-        let mut sketch = HyperMinHash::wrap([0; NUM_REGISTERS]);
+        let mut sketch = HyperMinHash::wrap(new_array_registers());
 
         for i in 0..10 {
             sketch.add(format!("id{}", i).as_bytes());
@@ -283,12 +283,12 @@ mod tests {
 
     #[test]
     fn test_intersection() {
-        let mut sketch_1 = HyperMinHash::wrap([0; NUM_REGISTERS]);
+        let mut sketch_1 = HyperMinHash::wrap(new_array_registers());
         for i in 0..10000 {
             sketch_1.add(format!("a_{}", i).as_bytes());
         }
 
-        let mut sketch_2 = HyperMinHash::wrap([0; NUM_REGISTERS]);
+        let mut sketch_2 = HyperMinHash::wrap(new_array_registers());
         for i in 0..10000 {
             sketch_2.add(format!("b_{}", i).as_bytes());
         }

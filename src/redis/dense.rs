@@ -18,7 +18,7 @@ impl DenseVector {
 }
 
 impl RegisterVector for DenseVector {
-    fn get(&self, idx: usize) -> u32 {
+    fn register_at(&self, idx: usize) -> u32 {
         let offset = idx * DenseVector::SINGLE_REGISTER_BYTES;
 
         let mut result = 0u16;
@@ -28,14 +28,14 @@ impl RegisterVector for DenseVector {
         result as u32
     }
 
-    fn set(&mut self, idx: usize, value: u32) {
+    fn set_register(&mut self, idx: usize, value: u32) {
         let offset = idx * DenseVector::SINGLE_REGISTER_BYTES;
 
         self.data[offset + 1] = ((value >> 0) & 0xff) as u8;
         self.data[offset + 0] = ((value >> 8) & 0xff) as u8;
     }
 
-    fn len(&self) -> usize {
+    fn num_registers(&self) -> usize {
         self.data.len()
     }
 }
