@@ -1,7 +1,7 @@
 use libc::size_t;
 use std::ops::{Index, IndexMut};
 
-/// Provides rust-ic interface for raw Redis StringDMA
+/// Provides familiar interface for raw Redis StringDMA
 pub struct CByteArray {
     underlying: *mut u8,
     len: size_t,

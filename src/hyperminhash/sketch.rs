@@ -33,10 +33,11 @@ impl <T : RegisterVector> HyperMinHash<T> {
     pub fn add(&mut self, element: &[u8]) -> bool {
         let hash = murmur3_x64_128(element, HASH_SEED);
 
-        let register = (hash >> (HASH_BITS - P) as u128) as usize;
+        let PatLen { register, len: pat_len } = pat_len(&hash);
 
-        let pat_len = pat_len(&hash);
-        let rbits = hash as usize & ((1 << R) - 1);
+        // take rightmost R bits
+        let r_mask = ((1 << R) - 1) as u128;
+        let rbits = hash & r_mask;
 
         let packed = rbits as u32 | (pat_len << R as u32);
         if packed > self.registers.register_at(register) {
@@ -170,15 +171,26 @@ impl MinHashCombiner {
     }
 }
 
-fn pat_len(hash: &u128) -> u32 {
+#[derive(Debug, PartialEq)]
+struct PatLen {
+    register: usize,
+    len: u32,
+}
+
+/// Use leftmost P bits to determine register.
+/// Find leftmost 1-bit position in next Q bits.
+fn pat_len(hash: &u128) -> PatLen {
+    let register = (hash >> (HASH_BITS - P) as u128) as usize;
+
     let mut pat_len = 1u32;
-    for i in 0..HLL_Q {
-        if hash & (1 << (HASH_BITS - P - i - 1) as u128) != 0 {
+    for i in 1..=HLL_Q {
+        if hash & (1 << (HASH_BITS - P - i) as u128) != 0 {
             break;
         }
         pat_len += 1;
     }
-    pat_len
+
+    PatLen { register, len: pat_len, }
 }
 
 fn cardinality(reg_histo: &[u32]) -> f64 {
@@ -253,9 +265,11 @@ mod tests {
 
     #[test]
     fn test_pat_len() {
-        assert_eq!(pat_len(&0u128), 65);
+        assert_eq!(pat_len(&0u128),
+                   PatLen { register: 0, len: 65, });
 
-        assert_eq!(pat_len(&0x1_00000000_00000000u128), 50);
+        assert_eq!(pat_len(&0x1_00000000_00000000u128),
+                   PatLen { register: 0, len: 50, });
     }
 
     #[test]

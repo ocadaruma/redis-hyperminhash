@@ -7,8 +7,8 @@ pub const HASH_BITS: usize = 128;
 pub const P: usize = 14;
 pub const Q: usize = 6;
 pub const R: usize = 10;
-pub const NUM_REGISTERS: usize = 1 << P as usize;
-pub const HLL_Q: usize = 1 << Q as usize;
+pub const NUM_REGISTERS: usize = 1 << P;
+pub const HLL_Q: usize = 1 << Q;
 pub const HLL_BITS: usize = HASH_BITS - R;
 
 /// Provides abstraction of HyperMinHash registers.
