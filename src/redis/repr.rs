@@ -28,7 +28,7 @@
 use super::dense::DenseVector;
 use super::dma::CByteArray;
 
-const MAGIC: [u8; 4] = ['H' as u8,'Y' as u8,'M' as u8,'H' as u8];
+const MAGIC: [u8; 4] = [b'H',b'Y',b'M',b'H'];
 const HEADER_LEN: usize = 16;
 
 pub enum Encoding {
@@ -103,14 +103,15 @@ impl HyperMinHashRepr {
     pub fn get_cache(&self) -> u64 {
         let mut result = 0u64;
 
-        result |= self.data[8] as u64;
-        result |= (self.data[9] as u64) << 8;
-        result |= (self.data[10] as u64) << 16;
-        result |= (self.data[11] as u64) << 24;
-        result |= (self.data[12] as u64) << 32;
-        result |= (self.data[13] as u64) << 40;
-        result |= (self.data[14] as u64) << 48;
-        result |= (self.data[15] as u64) << 56;
+
+        result |= u64::from(self.data[8]);
+        result |= u64::from(self.data[9]) << 8;
+        result |= u64::from(self.data[10]) << 16;
+        result |= u64::from(self.data[11]) << 24;
+        result |= u64::from(self.data[12]) << 32;
+        result |= u64::from(self.data[13]) << 40;
+        result |= u64::from(self.data[14]) << 48;
+        result |= u64::from(self.data[15]) << 56;
 
         result
     }
