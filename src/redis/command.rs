@@ -1,3 +1,5 @@
+//! Redis commands implementation.
+
 use super::*;
 use crate::hyperminhash::sketch::{HyperMinHash, MinHashCombiner};
 use crate::hyperminhash::NUM_REGISTERS;
@@ -6,6 +8,11 @@ use repr::{HyperMinHashRepr, Registers};
 use libc::{c_double, c_int, size_t, c_longlong};
 use std::slice::from_raw_parts;
 
+
+/// Add given elements to HyperMinHash sketch.
+/// Key will be initialized regardless of any element is passed or not.
+///
+/// `redis-cli> MH.ADD key [element ...]`
 #[allow(non_snake_case)]
 #[no_mangle]
 pub extern "C" fn MinHashAdd_RedisCommand(
@@ -33,9 +40,7 @@ pub extern "C" fn MinHashAdd_RedisCommand(
             new_key = true
         }
 
-        let mut len: size_t = 0;
-        let ptr = RedisModule_StringDMA(key, &mut len, REDISMODULE_WRITE);
-        let mut bytes = CByteArray::wrap(ptr, len);
+        let mut bytes = string_dma(key);
 
         if new_key {
             HyperMinHashRepr::initialize(&mut bytes);
@@ -67,6 +72,10 @@ pub extern "C" fn MinHashAdd_RedisCommand(
     }
 }
 
+/// Estimate cardinality using HyperLogLog.
+/// If multiple keys are specified, estimate their union cardinality.
+///
+/// `redis-cli> MH.COUNT key [key ...]`
 #[allow(non_snake_case)]
 #[no_mangle]
 pub extern "C" fn MinHashCount_RedisCommand(
@@ -85,8 +94,7 @@ pub extern "C" fn MinHashCount_RedisCommand(
     // single key case
     if argc == 2 {
         unsafe {
-            let key = RedisModule_OpenKey(ctx, *argv.add(1), REDISMODULE_READ | REDISMODULE_WRITE);
-            let key_type = RedisModule_KeyType(key);
+            let Key(key, key_type) = open_rw(ctx, *argv.add(1));
 
             if key_type == REDISMODULE_KEYTYPE_EMPTY {
                 return RedisModule_ReplyWithLongLong(ctx, 0);
@@ -95,10 +103,7 @@ pub extern "C" fn MinHashCount_RedisCommand(
                 return reply_wrong_type(ctx);
             }
 
-            let mut len: size_t = 0;
-            let ptr = RedisModule_StringDMA(key, &mut len, REDISMODULE_WRITE);
-
-            return match HyperMinHashRepr::parse(CByteArray::wrap(ptr, len)) {
+            return match HyperMinHashRepr::parse(string_dma(key)) {
                 None =>
                     reply_wrong_type(ctx),
                 Some(mut repr) => {
@@ -130,10 +135,7 @@ pub extern "C" fn MinHashCount_RedisCommand(
                 return reply_wrong_type(ctx);
             }
 
-            let mut len: size_t = 0;
-            let ptr = RedisModule_StringDMA(key, &mut len, REDISMODULE_WRITE);
-
-            match HyperMinHashRepr::parse(CByteArray::wrap(ptr, len)) {
+            match HyperMinHashRepr::parse(string_dma(key)) {
                 None => return reply_wrong_type(ctx),
                 Some(repr) => {
                     union_sketch.merge(&match repr.registers() {
@@ -147,6 +149,10 @@ pub extern "C" fn MinHashCount_RedisCommand(
     }
 }
 
+/// Merge multiple sketches into destination key.
+/// Destination key will be initialized regardless of any sourcekey is passed or not.
+///
+/// `redis-cli> MH.MERGE destkey sourcekey [sourcekey ...]`
 #[allow(non_snake_case)]
 #[no_mangle]
 pub extern "C" fn MinHashMerge_RedisCommand(
@@ -175,9 +181,7 @@ pub extern "C" fn MinHashMerge_RedisCommand(
             new_key = true;
         }
 
-        let mut len: size_t = 0;
-        let ptr = RedisModule_StringDMA(key, &mut len, REDISMODULE_WRITE);
-        let mut bytes = CByteArray::wrap(ptr, len);
+        let mut bytes = string_dma(key);
 
         if new_key {
             HyperMinHashRepr::initialize(&mut bytes);
@@ -202,10 +206,7 @@ pub extern "C" fn MinHashMerge_RedisCommand(
                 return reply_wrong_type(ctx);
             }
 
-            let mut len: size_t = 0;
-            let ptr = RedisModule_StringDMA(key, &mut len, REDISMODULE_WRITE);
-
-            match HyperMinHashRepr::parse(CByteArray::wrap(ptr, len)) {
+            match HyperMinHashRepr::parse(string_dma(key)) {
                 None =>
                     return reply_wrong_type(ctx),
                 Some(repr) => {
@@ -221,6 +222,9 @@ pub extern "C" fn MinHashMerge_RedisCommand(
     }
 }
 
+/// Estimate similarity between multiple sketches using MinHash.
+///
+/// `redis-cli> MH.SIMILARITY key [key ...]`
 #[allow(non_snake_case)]
 #[no_mangle]
 pub extern "C" fn MinHashSimilarity_RedisCommand(
@@ -246,10 +250,7 @@ pub extern "C" fn MinHashSimilarity_RedisCommand(
                 return reply_wrong_type(ctx);
             }
 
-            let mut len: size_t = 0;
-            let ptr = RedisModule_StringDMA(key, &mut len, REDISMODULE_WRITE);
-
-            match HyperMinHashRepr::parse(CByteArray::wrap(ptr, len)) {
+            match HyperMinHashRepr::parse(string_dma(key)) {
                 None =>
                     return reply_wrong_type(ctx),
                 Some(repr) => {
@@ -264,6 +265,9 @@ pub extern "C" fn MinHashSimilarity_RedisCommand(
     }
 }
 
+/// Estimate intersection cardinality of multiple sketches using MinHash.
+///
+/// `redis-cli> MH.INTERSECTION key [key ...]`
 #[allow(non_snake_case)]
 #[no_mangle]
 pub extern "C" fn MinHashIntersection_RedisCommand(
@@ -289,10 +293,7 @@ pub extern "C" fn MinHashIntersection_RedisCommand(
                 return reply_wrong_type(ctx);
             }
 
-            let mut len: size_t = 0;
-            let ptr = RedisModule_StringDMA(key, &mut len, REDISMODULE_WRITE);
-
-            match HyperMinHashRepr::parse(CByteArray::wrap(ptr, len)) {
+            match HyperMinHashRepr::parse(string_dma(key)) {
                 None =>
                     return reply_wrong_type(ctx),
                 Some(repr) => {
@@ -324,6 +325,14 @@ fn open_rw(ctx: *mut RedisModuleCtx, string: *mut RedisModuleString) -> Key {
         let key_type = RedisModule_KeyType(ptr);
 
         Key(ptr, key_type)
+    }
+}
+
+fn string_dma(key: *mut RedisModuleKey) -> CByteArray {
+    let mut len: size_t = 0;
+    unsafe {
+        let ptr = RedisModule_StringDMA(key, &mut len, REDISMODULE_WRITE);
+        CByteArray::wrap(ptr, len)
     }
 }
 

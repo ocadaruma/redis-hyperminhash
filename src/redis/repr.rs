@@ -1,11 +1,29 @@
 //! HyperMinHash data structure representation.
 //!
-//! Header structure:
+//! The data structure is consists of 16-byte header and HyperMinHash registers.
+//!
+//! ## Header
+//!
 //! ```
 //!  +------+---+-----+----------+
 //!  | HYMH | E | N/U | Cardin.  |
 //!  +------+---+-----+----------+
 //! ```
+//!
+//! - HYMH: 4 byte magic string.
+//! - E: 1 byte flag represents register encoding. (currently DENSE only)
+//! - N/U: 3 byte reserved for future use
+//! - Cardin.: 8 byte cached cardinality of the sketch
+//!
+//! ## Registers
+//!
+//! ### Dense representation
+//!
+//! Unlike Redis built-in HyperLogLog, only dense representation is supported now.
+//!
+//! In dense representation, registers are encoded as plain 16-bit integer array.
+//!
+//! NOTE: If you want to change HyperMinHash P,Q,R parameters, you may have to change encoding.
 
 use super::dense::DenseVector;
 use super::dma::CByteArray;
