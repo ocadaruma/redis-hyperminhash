@@ -128,11 +128,13 @@ impl MinHashCombiner {
             return 0.0;
         }
 
-        let n_e = self.expected_collision();
-        if (c as f64) < n_e {
-            return 0.0;
-        }
-        (c as f64 - n_e) / n as f64
+//        let n_e = self.expected_collision();
+//        if (c as f64) < n_e {
+//            return 0.0;
+//        }
+//        (c as f64 - n_e) / n as f64
+
+        c as f64 / n as f64
     }
 
     pub fn intersection(&self) -> f64 {
