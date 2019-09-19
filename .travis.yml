@@ -50,7 +50,7 @@ branches:
 deploy:
   provider: releases
   api_key:
-    secure: ""
+    secure: hcyOJDkvOviMhg1xRYQe+fw3mQD20PwOy9+uKlLx3/AMt7K0KYVdanBauiVl9gWaLa0tDI7LBT1AvjkzOpOcoZrihv0fcJCjTF4b/BP8U8Tv2W7HmXhkeL5DMdhyhPYRdO6zwNXZfFY0DlFA1Dob4EDUGpw/7zjEfSwoR1O66DqlpwdgsHeJvYn8Nkh3dWnZVTA5i1IbdKB+td95t2r7UENLZltyDkgSK9HOPYQS0U/UIBqE0iu4Y3jfoAQxy4JlJDZkRp3qbRk7VY7U7gD7u2Rxf4K948EmVhGxONBAG5dvNxarpysHtFFOpP0nUNVHo+WXIvfcbNNqqce+AmlHhscS9AX6/TE26GHhoWK9qRKE5N2hg+K6vHiKcyV+J6ZQ15cOiPIz0YRFaFAC5HX/w+PG50sYv89ynTsz/AKmrQN2dPL3flJQ1nq4+EoVUAhsGuTQYGwNZR4Sz3dxpTIZuq1sO73dfQHzfR6+KNcWWHsjv8x36Zm45inSPzV+m4U9G2CNfnRfSY/CrGdkokiL/B6ZcVe63wkgd+nE49/zJ3BtL3DzVzxiVsjXxwgyi+l6dHKbUKXYIxiintYttTNWSmiyWd9btIArclR3e/LdyyT6AITXijAgxm486TYepTyJWb9HorVYEqtxvkXJN6S9CuQq2ZhwFBQy/XJYCi7FoJ4=
   file: $CRATE_NAME-$TRAVIS_TAG-$TARGET.tar.gz
   skip_cleanup: true
   on:

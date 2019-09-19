@@ -1,5 +1,7 @@
 # redis-hyperminhash
 
+[![Build Status](https://travis-ci.org/ocadaruma/redis-hyperminhash.svg?branch=master)](https://travis-ci.org/ocadaruma/redis-hyperminhash)
+
 A Redis module provides HyperLogLog and MinHash feature at once using [HyperMinHash](https://arxiv.org/abs/1710.08436) sketch.
 
 redis-hyperminhash is written in Rust.
