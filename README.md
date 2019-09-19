@@ -1,17 +1,17 @@
 # redis-hyperminhash
 
-A Redis module provides HyperLogLog and MinHash feature at once based on [HyperMinHash](https://arxiv.org/abs/1710.08436).
+A Redis module provides HyperLogLog and MinHash feature at once using [HyperMinHash](https://arxiv.org/abs/1710.08436) sketch.
 
 redis-hyperminhash is written in Rust.
 
 Features:
 
 - Cardinality estimation
-  - Same accuracy as of Redis built-in HyperLogLog (PFCOUNT)
+  - Same accuracy as of Redis built-in HLL (PFCOUNT)
 - Similarity estimation
-  - Estimate jaccard index by MinHash
+  - Estimate Jaccard index using MinHash
 - Intersection cardinality estimation
-  - By combining jaccard index and union cardinality
+  - By combining Jaccard index and union cardinality
 
 ## Installation
 
@@ -68,6 +68,8 @@ Same usage as `PFMERGE`.
 
 ### MH.SIMILARITY
 
+Estimates Jaccard index between multiple sketches.
+
 ```
 redis-cli> MH.SIMILARITY key other-key
 "0.59999994040939497"
@@ -75,7 +77,76 @@ redis-cli> MH.SIMILARITY key other-key
 
 ### MH.INTERSECTION
 
+Estimates intersection cardinality between multiple sketches.
+
 ```
 redis-cli> MH.INTERSECTION key other-key
 (integer) 3
+```
+
+## Memory usage
+
+Sketch size is 32KB per key.
+
+Unlike Redis built-in HLL, redis-hyperminhash does not support sparse encoding now.
+
+## Performance
+
+HLL operations (MH.ADD, MH.COUNT, MH.MERGE) perform almost as fast as built-in HLL.
+
+MH.SIMILARITY, MH.INTERSECTION are slightly slow. (2 or 3 times slower than HLL operations)
+
+See results in [rough benchmark](benchmark/README.md).
+
+## `MH.COUNT` Accuracy
+
+`MH.COUNT` relies on [New cardinality estimation algorithms for HyperLogLog sketches](https://arxiv.org/abs/1702.01284), which is adopted in Redis built-in HyperLogLog.
+
+Histogram of 500 experiments (true cardinality = 10000)
+
+```
+============== HyperMinHash ==============
+09816- : **
+09835- : **
+09854- : ***
+09873- : *********
+09892- : ************************
+09911- : ************************
+09930- : *************************************
+09950- : ****************************************************
+09969- : ********************************************************************
+09988- : ***************************************************************************
+10007- : ******************************************************
+10026- : *************************************************
+10045- : ********************************
+10064- : ************************************
+10084- : ****************
+10103- : *********
+10122- : ***
+10141- : **
+10160- : **
+10179- :
+10199- : *
+============== built-in HyperLogLog ==============
+09797- : *
+09817- : *
+09837- :
+09858- : ****
+09878- : *************
+09899- : **********************
+09919- : ********************************************
+09939- : **********************************************
+09960- : ******************************************************
+09980- : ********************************************************
+10001- : *******************************************************************
+10021- : ************************************************************
+10041- : ***************************************
+10062- : *************************************************
+10082- : ***************
+10103- : ***************
+10123- : ********
+10143- : **
+10164- : **
+10184- : *
+10205- : *
 ```

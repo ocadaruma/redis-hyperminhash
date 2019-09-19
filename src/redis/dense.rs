@@ -22,16 +22,16 @@ impl RegisterVector for DenseVector {
         let offset = idx * DenseVector::SINGLE_REGISTER_BYTES;
 
         let mut result = 0u16;
-        result |= (self.data[offset + 0] as u16) << 0;
-        result |= (self.data[offset + 1] as u16) << 8;
+        result |= u16::from(self.data[offset    ]);
+        result |= u16::from(self.data[offset + 1]) << 8;
 
-        result as u32
+        u32::from(result)
     }
 
     fn set_register(&mut self, idx: usize, value: u32) {
         let offset = idx * DenseVector::SINGLE_REGISTER_BYTES;
 
-        self.data[offset + 0] = ((value >> 0) & 0xff) as u8;
+        self.data[offset    ] = ((value     ) & 0xff) as u8;
         self.data[offset + 1] = ((value >> 8) & 0xff) as u8;
     }
 }

@@ -20,8 +20,8 @@ const REDISMODULE_ERR: c_int = 1;
 const REDISMODULE_KEYTYPE_EMPTY: c_int = 0;
 const REDISMODULE_KEYTYPE_STRING: c_int = 1;
 
-const REDISMODULE_READ: c_int = 1 << 0;
-const REDISMODULE_WRITE: c_int = 1 << 1;
+const REDISMODULE_READ: c_int = 1;
+const REDISMODULE_WRITE: c_int = REDISMODULE_READ << 1;
 
 // Opaque types for Redis Module structs
 pub enum RedisModuleCtx {}
@@ -95,10 +95,10 @@ extern "C" {
 
     static RedisModule_ReplicateVerbatim: extern "C" fn(ctx: *mut RedisModuleCtx) -> c_int;
 
-    static RedisModule_Log: extern "C" fn(
-        ctx: *mut RedisModuleCtx,
-        level: *const u8,
-        fmt: *const u8);
+//    static RedisModule_Log: extern "C" fn(
+//        ctx: *mut RedisModuleCtx,
+//        level: *const u8,
+//        fmt: *const u8);
 }
 
 #[allow(non_snake_case)]
