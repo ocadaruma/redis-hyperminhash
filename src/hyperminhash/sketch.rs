@@ -128,48 +128,64 @@ impl MinHashCombiner {
             return 0.0;
         }
 
-//        let n_e = self.expected_collision();
-//        if (c as f64) < n_e {
-//            return 0.0;
-//        }
-//        (c as f64 - n_e) / n as f64
-
-        c as f64 / n as f64
+        // do collision error correction only when estimating similarity of 2 sets.
+        // otherwise, expected collision computation in original paper (algorithm 2.1.5) does not works.
+        // see discussion in: https://github.com/LiveRamp/HyperMinHash-java/issues/13
+        if self.cardinalities.len() == 2 {
+            let ec = approx_expected_collision(self.cardinalities[0], self.cardinalities[1]);
+            (c as f64 - ec) / n as f64
+        } else {
+            c as f64 / n as f64
+        }
     }
 
     pub fn intersection(&self) -> f64 {
         self.similarity() * self.union.cardinality()
     }
+}
 
-    fn expected_collision(&self) -> f64 {
-        let _2r = 1 << R;
+fn expected_collision(n: f64, m: f64, p: usize, q: usize, r: usize) -> f64 {
+    let _2r = 1 << r;
+    let _2q = 1 << q;
 
-        let mut x = 0.0;
-        let mut b1: f64;
-        let mut b2: f64;
+    let mut x = 0.0;
+    let mut b1: f64;
+    let mut b2: f64;
 
-        for i in 1..=HLL_Q {
-            for j in 1..=_2r {
-                if i != HLL_Q {
-                    let den = 2f64.powf((P + R + i) as f64);
-                    b1 = (_2r + j) as f64 / den;
-                    b2 = (_2r + j + 1) as f64 / den;
-                } else {
-                    let den = 2f64.powf((P + R + i - 1) as f64);
-                    b1 = j as f64 / den;
-                    b2 = (j + 1) as f64 / den;
-                }
-
-                let mut product = 1.0;
-                for c in &self.cardinalities {
-                    product *= (1.0 - b2).powf(*c) - (1.0 - b1).powf(*c);
-                }
-
-                x += product;
+    for i in 1..=_2q {
+        for j in 1..=_2r {
+            if i != _2q {
+                let den = 2f64.powi((p + r + i) as i32);
+                b1 = (_2r + j) as f64 / den;
+                b2 = (_2r + j + 1) as f64 / den;
+            } else {
+                let den = 2f64.powi((p + r + i - 1) as i32);
+                b1 = j as f64 / den;
+                b2 = (j + 1) as f64 / den;
             }
-        }
 
-        x * self.reg_intersection.len() as f64
+            let prx = (1.0 - b2).powf(n) - (1.0 - b1).powf(n);
+            let pry = (1.0 - b2).powf(m) - (1.0 - b1).powf(m);
+
+            x += prx * pry;
+        }
+    }
+
+    x * NUM_REGISTERS as f64
+}
+
+fn approx_expected_collision(n: f64, m: f64) -> f64 {
+    let (n, m) = if n < m { (m, n) } else { (n, m) };
+
+    if n > 2f64.powi((HLL_Q + R) as i32) {
+        // return 0 instead of panic if n is too large
+        0.0
+    } else if n > 2f64.powi((P + 5) as i32) {
+        let phi = (4.0 * n / m) / (1.0 + n / m).powi(2);
+
+        0.169919487159739093975315012348f64 * 2f64.powi((P - R) as i32) * phi
+    } else {
+        expected_collision(n, m, P, Q, 0) / 2f64.powi(R as i32)
     }
 }
 
@@ -298,7 +314,7 @@ mod tests {
     }
 
     #[test]
-    fn test_intersection() {
+    fn test_intersection_10000() {
         let mut sketch_1 = HyperMinHash::wrap(new_array_registers());
         for i in 0..10000 {
             sketch_1.add(format!("a_{}", i).as_bytes());
@@ -318,6 +334,30 @@ mod tests {
         combiner.combine(&sketch_1);
         combiner.combine(&sketch_2);
 
-        assert_eq!(combiner.intersection() as u64, 106);
+        assert_eq!(combiner.intersection() as u64, 107);
+    }
+
+    #[test]
+    fn test_intersection_1_000_000() {
+        let mut sketch_1 = HyperMinHash::wrap(new_array_registers());
+        for i in 0..1_000_000 {
+            sketch_1.add(format!("a_{}", i).as_bytes());
+        }
+
+        let mut sketch_2 = HyperMinHash::wrap(new_array_registers());
+        for i in 0..1_000_000 {
+            sketch_2.add(format!("b_{}", i).as_bytes());
+        }
+
+        for i in 0..10000 {
+            sketch_1.add(format!("ab_{}", i).as_bytes());
+            sketch_2.add(format!("ab_{}", i).as_bytes());
+        }
+
+        let mut combiner = MinHashCombiner::new();
+        combiner.combine(&sketch_1);
+        combiner.combine(&sketch_2);
+
+        assert_eq!(combiner.intersection() as u64, 9182);
     }
 }
