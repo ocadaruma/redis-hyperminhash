@@ -1,6 +1,6 @@
 require "redis"
 
-ITERATIONS = 1000
+ITERATIONS = 100000
 
 REDIS_PORT = ENV["REDIS_PORT"] || "6379"
 

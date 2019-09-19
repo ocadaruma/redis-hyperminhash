@@ -95,10 +95,10 @@ extern "C" {
 
     static RedisModule_ReplicateVerbatim: extern "C" fn(ctx: *mut RedisModuleCtx) -> c_int;
 
-    static RedisModule_Log: extern "C" fn(
-        ctx: *mut RedisModuleCtx,
-        level: *const u8,
-        fmt: *const u8);
+//    static RedisModule_Log: extern "C" fn(
+//        ctx: *mut RedisModuleCtx,
+//        level: *const u8,
+//        fmt: *const u8);
 }
 
 #[allow(non_snake_case)]

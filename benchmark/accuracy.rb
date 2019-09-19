@@ -54,7 +54,7 @@ def print_histogram(histo)
   end
 
   buckets.each.with_index do |b, i|
-    puts "#{sprintf("%05d", left + i * (range.to_f / 20))}: #{'*' * b}"
+    puts "#{sprintf("%05d- ", left + i * (range.to_f / 20))}: #{'*' * b}"
   end
 end
 

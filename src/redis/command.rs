@@ -44,7 +44,6 @@ pub extern "C" fn MinHashAdd_RedisCommand(
 
         if new_key {
             HyperMinHashRepr::initialize(&mut bytes);
-            log_debug(ctx, "key initialized");
         }
         match HyperMinHashRepr::parse(bytes) {
             None => reply_wrong_type(ctx),
@@ -349,12 +348,5 @@ fn reply_wrong_type(ctx: *mut RedisModuleCtx) -> c_int {
 fn reply_ok(ctx: *mut RedisModuleCtx) -> c_int {
     unsafe {
         RedisModule_ReplyWithSimpleString(ctx, "OK\0".as_ptr())
-    }
-}
-
-fn log_debug(ctx: *mut RedisModuleCtx, message: &str) {
-    unsafe {
-        RedisModule_Log(
-            ctx, "debug\0".as_ptr(), format!("{}\0", message).as_ptr());
     }
 }
