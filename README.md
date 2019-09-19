@@ -100,7 +100,7 @@ See results in [rough benchmark](benchmark/README.md).
 
 ## `MH.COUNT` Accuracy
 
-`MH.COUNT` relies on [New cardinality estimation algorithms for HyperLogLog sketches](https://arxiv.org/abs/1702.01284), which is adopted in Redis built-in HyperLogLog.
+`MH.COUNT` relies on [New cardinality estimation algorithms for HyperLogLog sketches](https://arxiv.org/abs/1702.01284), which is adopted in Redis built-in HLL.
 
 Histogram of 500 experiments (true cardinality = 10000)
 
