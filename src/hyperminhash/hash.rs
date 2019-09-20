@@ -13,32 +13,20 @@ pub fn murmur3_x64_128(element: &[u8], seed: u64) -> u128 {
     let c2 = 0x4cf5ad43_2745937fu64;
 
     for i in 0..nblocks {
-        let mut k1 = 0u64;
         let lsb1 = (i*2 + 0) * 8;
-        k1 |= element[lsb1 + 0] as u64;
-        k1 |= (element[lsb1 + 1] as u64) << 8;
-        k1 |= (element[lsb1 + 2] as u64) << 16;
-        k1 |= (element[lsb1 + 3] as u64) << 24;
-        k1 |= (element[lsb1 + 4] as u64) << 32;
-        k1 |= (element[lsb1 + 5] as u64) << 40;
-        k1 |= (element[lsb1 + 6] as u64) << 48;
-        k1 |= (element[lsb1 + 7] as u64) << 56;
-
-        let mut k2 = 0u64;
         let lsb2 = (i*2 + 1) * 8;
-        k2 |= element[lsb2 + 0] as u64;
-        k2 |= (element[lsb2 + 1] as u64) << 8;
-        k2 |= (element[lsb2 + 2] as u64) << 16;
-        k2 |= (element[lsb2 + 3] as u64) << 24;
-        k2 |= (element[lsb2 + 4] as u64) << 32;
-        k2 |= (element[lsb2 + 5] as u64) << 40;
-        k2 |= (element[lsb2 + 6] as u64) << 48;
-        k2 |= (element[lsb2 + 7] as u64) << 56;
 
-        k1 = k1
+        let k1 = (0..8)
+            .fold(0u64, |acc, i| acc | ((element[lsb1 + i] as u64) << (i as u64 * 8)))
             .wrapping_mul(c1)
             .rotate_left(31)
             .wrapping_mul(c2);
+
+        let k2 = (0..8)
+            .fold(0u64, |acc, i| acc | ((element[lsb2 + i] as u64) << (i as u64 * 8)))
+            .wrapping_mul(c2)
+            .rotate_left(33)
+            .wrapping_mul(c1);
 
         h1 = h1
             .bitxor(k1)
@@ -46,11 +34,6 @@ pub fn murmur3_x64_128(element: &[u8], seed: u64) -> u128 {
             .wrapping_add(h2)
             .wrapping_mul(5)
             .wrapping_add(0x52dce729);
-
-        k2 = k2
-            .wrapping_mul(c2)
-            .rotate_left(33)
-            .wrapping_mul(c1);
 
         h2 = h2
             .bitxor(k2)
